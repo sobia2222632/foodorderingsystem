@@ -1,0 +1,258 @@
+import re
+from datetime import datetime
+
+# Initialize the availability of the food items using a dictionary
+menu = {
+    "Burgers & Sandwiches": [
+        {"name": "Cheeseburger", "price": 3.99},
+        {"name": "Chicken Fillet Burger", "price": 3.50},
+        {"name": "Veggie Burger", "price": 3.79},
+        {"name": "Double Bacon Cheeseburger", "price": 5.99},
+        {"name": "Grilled Chicken Sandwich", "price": 4.50},
+        {"name": "Spicy Bean Burger", "price": 4.29},
+    ],
+    "Sides": [
+        {"name": "Large Fries", "price": 2.49},
+        {"name": "Chicken Nuggets (6 pieces)", "price": 4.29},
+        {"name": "Mozzarella Sticks (5 pieces)", "price": 3.59},
+        {"name": "Onion Rings (10 pieces)", "price": 2.99},
+        {"name": "Side Salad", "price": 2.19},
+        {"name": "Garlic Bread", "price": 2.79},
+    ],
+    "Drinks": [
+        {"name": "Coke", "price": 1.99},
+        {"name": "Fanta", "price": 1.49},
+        {"name": "Sprite", "price": 1.49},
+        {"name": "Lemonade", "price": 1.89},
+        {"name": "Bottled Water", "price": 1.29},
+        {"name": "Iced Tea", "price": 2.19},
+    ],
+    "Desserts": [
+        {"name": "Chocolate Brownie", "price": 2.99},
+        {"name": "Vanilla Ice Cream", "price": 1.99},
+        {"name": "Apple Pie", "price": 2.49},
+        {"name": "Cheesecake Slice", "price": 3.49},
+    ]
+}
+
+# Cart to store user selections
+cart = []
+
+# Helper Functions
+def show_food_menu():
+    """Displays available food items with numbers."""
+    print("\n--- Food Menu ---")
+    item_number = 1
+    item_lookup = []
+    for category, items in menu.items():
+        print(f"\n{category}:")
+        for item in items:
+            print(f"  {item_number}. {item['name']} - £{item['price']:.2f}")
+            item_lookup.append(item)  # Append item to lookup list by index
+            item_number += 1
+    return item_lookup
+
+def add_to_cart(item, quantity):
+    cart.append({"name": item["name"], "price": item["price"], "quantity": quantity})
+    print(f"Added {quantity}x {item['name']} to your cart.")
+
+# Core Functions
+def take_order():
+    item_lookup = show_food_menu()
+    while True:
+        try:
+            item_number = input("\nEnter the number of the item you want to order (or type 'exit' to return): ")
+            if item_number.lower() == 'exit':
+                break
+            item_number = int(item_number) - 1  # Convert to zero-based index
+            if 0 <= item_number < len(item_lookup):
+                item = item_lookup[item_number]
+                while True:
+                    try:
+                        quantity = int(input(f"Enter quantity for {item['name']}: "))
+                        if quantity > 0:
+                            add_to_cart(item, quantity)
+                            break
+                        else:
+                            print("Quantity must be a positive integer.")
+                    except ValueError:
+                        print("Invalid input. Please enter a valid quantity.")
+            else:
+                print("Invalid item number. Please select a number from the menu.")
+        except ValueError:
+            print("Invalid input. Please enter a valid item number.")
+
+def calculate_total():
+    subtotal = sum(item['price'] * item['quantity'] for item in cart)
+    discount = 0.1 * subtotal if subtotal > 20 else 0
+    taxes = 0.05 * (subtotal - discount)
+    total = subtotal - discount + taxes
+    return subtotal, discount, taxes, total
+
+def display_cart_summary():
+    print("\n--- Cart Summary ---")
+    for item in cart:
+        print(f"{item['quantity']}x {item['name']} @ £{item['price']:.2f} each = £{item['price'] * item['quantity']:.2f}")
+    subtotal, discount, taxes, total = calculate_total()
+    print(f"Subtotal: £{subtotal:.2f}")
+    print(f"Discount: -£{discount:.2f}" if discount > 0 else "Discount: £0.00")
+    print(f"Taxes: +£{taxes:.2f}")
+    print(f"Total: £{total:.2f}")
+
+    # Check for discount eligibility and notify user
+    if discount > 0:
+        print("You qualify for a 10% discount on orders over £20!")
+    else:
+        print("Spend over £20 to receive a 10% discount!")
+
+
+def confirm_order():
+    display_cart_summary()
+    confirmation = input("Would you like to confirm the order? (yes/add/modify/cancel): ").strip().lower()
+
+    if confirmation == "yes":
+        return True
+    elif confirmation == "add":
+        print("What would you like to add to your order?")  # Ask user what to add
+        take_order()  # Ensure this function prompts for specific item selection
+        return confirm_order()  # Recursively confirm again
+    elif confirmation == "modify":
+        modify_order()
+        return confirm_order()
+    elif confirmation == "cancel":
+        cart.clear()
+        print("Order canceled.")
+        return False
+
+    print("Invalid option. Please try again.")
+    return confirm_order()  # Re-prompt if input is invalid
+
+
+def modify_order():
+    while True:
+        display_cart_summary()
+        item_name = input("Enter the name of the item to modify (or type 'done' to finish): ").strip()
+        if item_name.lower() == "done":
+            break
+        for item in cart:
+            if item["name"].lower() == item_name.lower():
+                try:
+                    new_quantity = int(input("Enter new quantity: "))
+                    if new_quantity > 0:
+                        item["quantity"] = new_quantity
+                        print(f"Updated {item_name} quantity to {new_quantity}.")
+                    else:
+                        cart.remove(item)
+                        print(f"Removed {item_name} from the cart.")
+                    break
+                except ValueError:
+                    print("Invalid input. Quantity should be a number.")
+        else:
+            print("Item not found in cart.")
+
+def payment_process():
+    """Handles payment details entry with format checks for card details."""
+    print("\n--- Payment Details ---")
+    print("We currently accept only card payments.")
+
+    # Prompt for cardholder's name
+    card_name = input("Enter the cardholder's name: ")
+
+    # Prompt for card number and validate format
+    while True:
+        card_number = input("Enter the 16-digit card number: ")
+        if re.match(r"^\d{16}$", card_number):
+            break
+        else:
+            print("Invalid card number. Please enter exactly 16 digits.")
+
+    # Prompt for sort code and validate format
+    while True:
+        sort_code = input("Enter the 6-digit sort code: ")
+        if re.match(r"^\d{6}$", sort_code):
+            break
+        else:
+            print("Invalid sort code. Please enter exactly 6 digits.")
+
+    # Prompt for security code and validate format
+    while True:
+        security_code = input("Enter the 3-digit security code: ")
+        if re.match(r"^\d{3}$", security_code):
+            break
+        else:
+            print("Invalid security code. Please enter exactly 3 digits.")
+
+    # Optional: Prompt for address for delivery
+    delivery_address = input("Enter your delivery address: ")
+
+    print("Payment successful. Thank you! Your order has been confirmed and will be prepared shortly.")
+
+def offer_receipt_delivery():
+    receipt_option = input("Would you like to view the receipt on screen or receive via SMS/email? (view/sms/email): ")
+    if receipt_option.lower() == "view":
+        display_cart_summary()
+    elif receipt_option.lower() in ["sms", "email"]:
+        contact_info = input("Please enter your phone number or email address: ")
+        print(f"Receipt sent to {contact_info}.")
+    else:
+        print("Invalid option.")
+
+def get_feedback():
+    print("\n--- Feedback ---")
+    while True:
+        try:
+            rating = int(input("Please rate your experience from 1 (poor) to 5 (excellent): "))
+            if 1 <= rating <= 5:
+                break
+            else:
+                print("Please enter a number between 1 and 5.")
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 5.")
+
+    comment = input("Leave your comment about the service below: ")
+    print(f"Thank you for your feedback! You rated us {rating} out of 5.")
+    print(f"Your comment: {comment}")
+
+def display_menu():
+    print("\n--- Welcome to QuickBite ---")
+    print("1. View Menu")
+    print("2. Select Item")
+    print("3. View Cart")
+    print("4. Checkout & Payment")
+    print("5. Exit")
+    print("--------------------------------")
+
+def main():
+    while True:
+        display_menu()
+        choice = input("Select an option (1-5): ").strip()
+        if choice == "1":
+            show_food_menu()
+        elif choice == "2":
+            take_order()  # Using take_order for item selection
+        elif choice == "3":
+            display_cart_summary()
+        elif choice == "4":
+            if confirm_order():
+                payment_process()
+                offer_receipt_delivery()
+                print("Thank you for ordering from QuickBite!")
+                get_feedback()
+                restart = input("Would you like to place a new order? (yes/no): ").strip().lower()
+                if restart == "yes":
+                    cart.clear()  # Clear cart for a new order
+                    print("\nStarting a new order...\n")
+                    continue
+                else:
+                    print("We hope you enjoy your meal!")
+                    break
+        elif choice == "5":
+            confirmation = input("Are you sure you want to exit? (yes/no): ").strip().lower()
+            if confirmation == "yes":
+                print("Exiting the system. Thank you for visiting QuickBite!")
+                break
+            else:
+                continue
+
+if __name__ == "__main__":
+    main()
